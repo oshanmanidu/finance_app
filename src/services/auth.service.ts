@@ -1,4 +1,5 @@
 
+
 import { Injectable, signal, inject, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -18,8 +19,8 @@ export class AuthService implements OnDestroy {
   private idleTimer: any;
   private eventCleanupFns: (() => void)[] = [];
 
-  readonly isLoggedIn = signal<boolean>(!!localStorage.getItem('user_session'));
-  readonly currentUser = signal<string>(localStorage.getItem('user_session') || '');
+  readonly isLoggedIn = signal<boolean>(!!sessionStorage.getItem('user_session'));
+  readonly currentUser = signal<string>(sessionStorage.getItem('user_session') || '');
 
   constructor() {
     // If we have an existing session on load, start monitoring
@@ -33,7 +34,7 @@ export class AuthService implements OnDestroy {
       const res: any = await firstValueFrom(this.http.post(`${this.API_URL}/login`, { username, password }));
       
       if (res && res.success) {
-        localStorage.setItem('user_session', res.username);
+        sessionStorage.setItem('user_session', res.username);
         this.currentUser.set(res.username);
         this.isLoggedIn.set(true);
         this.startIdleMonitoring(); // Start timer on login
@@ -47,7 +48,7 @@ export class AuthService implements OnDestroy {
   }
 
   logout() {
-    localStorage.removeItem('user_session');
+    sessionStorage.removeItem('user_session');
     this.currentUser.set('');
     this.isLoggedIn.set(false);
     this.stopIdleMonitoring(); // Stop timer on logout
