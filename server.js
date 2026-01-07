@@ -17,7 +17,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/cinepilot';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://oshanmanidu12_db_user:a5YPEZIGPcIkSMqb@cluster0.2j5yqfl.mongodb.net/?appName=Cluster0';
 
 mongoose.connect(MONGO_URI)
   .then(() => {
