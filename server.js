@@ -17,7 +17,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://oshanmanidu12_db_user:a5YPEZIGPcIkSMqb@cluster0.2j5yqfl.mongodb.net/?appName=Cluster0';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/cinepilot';
 
 mongoose.connect(MONGO_URI)
   .then(() => {
@@ -151,20 +151,104 @@ app.post('/api/sync', async (req, res) => {
     }
 });
 
+app.get('/api/transactions', async (req, res) => {
+    try {
+        const { page = 1, limit = 25, startDate, endDate, q, type, isLoan } = req.query;
+
+        const findQuery = {};
+        if (startDate && endDate) {
+            findQuery.date = { $gte: startDate, $lte: endDate };
+        }
+        if (q) {
+            const regex = new RegExp(q, 'i');
+            findQuery.$or = [{ category: regex }, { description: regex }];
+        }
+        
+        const allFilteredTransactions = await Transaction.find(findQuery);
+
+        const summary = {
+            totalIncome: allFilteredTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
+            totalExpense: allFilteredTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+            businessIncome: allFilteredTransactions.filter(t => t.isBusiness && t.type === 'income').reduce((s, t) => s + t.amount, 0),
+            businessExpenses: allFilteredTransactions.filter(t => t.isBusiness && t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+            personalIncome: allFilteredTransactions.filter(t => !t.isBusiness && t.type === 'income').reduce((s, t) => s + t.amount, 0),
+            personalExpenses: allFilteredTransactions.filter(t => !t.isBusiness && t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+        };
+        summary.netProfit = summary.totalIncome - summary.totalExpense;
+        summary.businessNet = summary.businessIncome - summary.businessExpenses;
+        summary.personalNet = summary.personalIncome - summary.personalExpenses;
+
+        const pageQuery = { ...findQuery };
+        if (type && type !== 'all') {
+            pageQuery.type = type;
+            pageQuery.isLoan = { $ne: true }; // Exclude loans if filtering by income/expense
+        }
+        if(isLoan === 'true') {
+            pageQuery.isLoan = true;
+            delete pageQuery.type; // Loan filter overrides type filter
+        }
+        pageQuery.parentId = { $exists: false }; // Only show parent transactions in main list
+
+        const p = parseInt(page, 10);
+        const l = parseInt(limit, 10);
+        const totalDocs = await Transaction.countDocuments(pageQuery);
+        const docs = await Transaction.find(pageQuery)
+            .sort({ date: -1, _id: -1 })
+            .skip((p - 1) * l)
+            .limit(l);
+        
+        const pagination = {
+            docs,
+            totalDocs,
+            totalPages: Math.ceil(totalDocs / l),
+            page: p,
+        };
+
+        res.json({ pagination, summary });
+    } catch (error) {
+        console.error('Fetch Transactions Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
 app.get('/api/data', async (req, res) => {
     try {
-        const [transactions, assets, businesses, customers] = await Promise.all([
-            Transaction.find({}),
+        const [assets, businesses, customers, transactions] = await Promise.all([
             Asset.find({}),
             Business.find({}),
-            Customer.find({})
+            Customer.find({}),
+            Transaction.find({ isLoan: { $ne: true } }) // Load non-loan transactions for summaries
         ]);
-        res.json({ transactions, assets, businesses, customers });
+
+        const now = new Date();
+        const curMonth = now.getMonth();
+        const curYear = now.getFullYear();
+
+        const businessesWithSummaries = businesses.map(bizDoc => {
+            const biz = bizDoc.toObject();
+            const bizTransactions = transactions.filter(t => t.businessId === biz.id);
+
+            const monthlyProfit = bizTransactions.filter(t => {
+                const d = new Date(t.date);
+                return d.getMonth() === curMonth && d.getFullYear() === curYear;
+            }).reduce((acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount), 0);
+            
+            const yearlyProfit = bizTransactions.filter(t => {
+                const d = new Date(t.date);
+                return d.getFullYear() === curYear;
+            }).reduce((acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount), 0);
+
+            return { ...biz, monthlyProfit, yearlyProfit };
+        });
+
+        res.json({ assets, businesses: businessesWithSummaries, customers });
     } catch (error) {
         console.error('Fetch Error:', error);
         res.status(500).json({ error: error.message });
     }
 });
+
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Finance Manager Backend running on http://127.0.0.1:${PORT}`);
