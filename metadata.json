@@ -1,0 +1,8 @@
+{
+  "name": "Finance Manager",
+  "description": "Comprehensive financial management for freelance video producers and drone pilots. Tracks income, business/home expenses, assets, and offers AI-powered insights.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
