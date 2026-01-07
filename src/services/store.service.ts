@@ -74,7 +74,7 @@ const THEME_PALETTES: Record<string, Record<number, string>> = {
 @Injectable({ providedIn: 'root' })
 export class StoreService {
   private http = inject(HttpClient);
-  private readonly API_URL = 'http://127.0.0.1:3000/api'; 
+  private readonly API_URL = 'http://127.0.0.1:8000/api'; 
 
   // --- State Signals ---
   readonly isOnline = signal(navigator.onLine);

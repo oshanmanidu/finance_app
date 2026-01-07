@@ -13,7 +13,7 @@ export class AuthService implements OnDestroy {
   private router = inject(Router);
   
   // Use 127.0.0.1 matching store service
-  private readonly API_URL = 'http://127.0.0.1:3000/api';
+  private readonly API_URL = 'http://127.0.0.1:8000/api';
   private readonly IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 Minutes
   
   private idleTimer: any;
